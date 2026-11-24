@@ -1,0 +1,521 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Kolorix – Jeu de cartes gratuit, solo ou en ligne</title>
+<meta name="description" content="Kolorix : jeu de cartes gratuit. Joue contre l'ordinateur ou défie un ami en ligne avec un code. Vide ta main en premier !">
+
+<!-- ====== GOOGLE ADSENSE ======
+Une fois votre compte AdSense validé, décommentez la ligne ci-dessous
+et remplacez ca-pub-XXXXXXXXXXXXXXXX par votre identifiant éditeur.
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+================================ -->
+
+<!-- Mode en ligne (connexion directe entre joueurs) -->
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+<style>
+:root{
+  --coral:#ef5b5b; --indigo:#4a6cf7; --emerald:#1fa971; --amber:#f2a900;
+  --bg1:#1b1340; --bg2:#3a1d6e;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#fff;
+  background:radial-gradient(circle at 50% 30%,var(--bg2),var(--bg1));overflow:hidden}
+#app{display:flex;flex-direction:column;height:100%;max-width:640px;margin:0 auto}
+header{display:flex;justify-content:space-between;align-items:center;padding:8px 14px}
+header h1{margin:0;font-size:22px;letter-spacing:2px;
+  background:linear-gradient(90deg,var(--coral),var(--amber),var(--emerald),var(--indigo));-webkit-background-clip:text;background-clip:text;color:transparent}
+.score{font-size:13px;opacity:.9}
+.menuBtn{background:rgba(255,255,255,.15);border:0;color:#fff;border-radius:8px;font-size:18px;padding:4px 10px;cursor:pointer}
+.ad{min-height:50px;margin:0 10px;border:1px dashed rgba(255,255,255,.25);border-radius:8px;
+  display:flex;align-items:center;justify-content:center;font-size:11px;opacity:.7;overflow:hidden}
+.zone{padding:6px 10px;text-align:center}
+.label{font-size:13px;opacity:.85;margin-bottom:4px}
+.hand{display:flex;justify-content:center;flex-wrap:nowrap;overflow-x:auto;padding:6px 4px}
+.cpu .card{margin-left:-34px}
+.cpu .card:first-child{margin-left:0}
+.mine{justify-content:flex-start;padding:10px 8px 14px}
+.mine .card{margin-left:-14px;flex:0 0 auto;transition:transform .15s}
+.mine .card:first-child{margin-left:0}
+.mid{flex:1;display:flex;align-items:center;justify-content:center;gap:26px;position:relative}
+.card{width:62px;height:92px;border-radius:12px;border:3px solid #fff;position:relative;
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:28px;color:#fff;
+  box-shadow:0 3px 8px rgba(0,0,0,.4);user-select:none;flex-shrink:0}
+.card::before{content:"";position:absolute;width:70%;height:58%;border-radius:50%;
+  background:rgba(255,255,255,.2);transform:rotate(-25deg)}
+.card span{position:relative;z-index:1;text-shadow:0 2px 3px rgba(0,0,0,.35)}
+.card i{position:absolute;font-style:normal;font-size:11px;font-weight:700;z-index:1}
+.card i.tl{top:3px;left:6px}.card i.br{bottom:3px;right:6px;transform:rotate(180deg)}
+.c-coral{background:var(--coral)}.c-indigo{background:var(--indigo)}
+.c-emerald{background:var(--emerald)}.c-amber{background:var(--amber)}
+.c-wild{background:conic-gradient(var(--coral) 0 25%,var(--indigo) 0 50%,var(--emerald) 0 75%,var(--amber) 0)}
+.back{background:linear-gradient(135deg,#2b2160,#6b3fd1);font-size:24px}
+.back::before{display:none}
+.mine .card.ok{transform:translateY(-14px);box-shadow:0 0 0 3px #fff,0 6px 14px rgba(255,255,255,.35)}
+.mine .card:not(.ok){filter:brightness(.6)}
+#pile{cursor:pointer;position:relative}
+#colorDot{width:22px;height:22px;border-radius:50%;border:3px solid #fff;position:absolute;top:-10px;right:-10px;z-index:3}
+#msg{text-align:center;min-height:24px;font-size:15px;font-weight:600;padding:2px 10px}
+.btn{background:#fff;color:#2b2160;border:0;border-radius:999px;padding:11px 22px;font-size:15px;font-weight:800;cursor:pointer;text-decoration:none;display:inline-block}
+.btn.alt{background:rgba(255,255,255,.15);color:#fff}
+.btn.full{display:block;width:100%;margin:8px 0}
+#passBtn{display:none;margin:4px auto}
+.modal{position:fixed;inset:0;background:rgba(10,5,30,.85);display:none;align-items:center;justify-content:center;z-index:10;padding:20px}
+.modal .box{background:#2b2160;border-radius:18px;padding:22px;text-align:center;max-width:340px;width:100%}
+.modal h2{margin:0 0 12px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:10px 0}
+.cols button{height:64px;border:3px solid #fff;border-radius:14px;cursor:pointer}
+input.code{width:100%;padding:12px;border-radius:12px;border:0;font-size:20px;text-align:center;text-transform:uppercase;letter-spacing:4px;margin:6px 0}
+#mstat{font-size:13px;min-height:18px;margin:6px 0;opacity:.9}
+#bigCode{font-size:34px;font-weight:800;letter-spacing:6px;margin:6px 0}
+footer{font-size:10px;text-align:center;opacity:.55;padding:2px 0 6px}
+footer a{color:#fff}
+</style>
+</head>
+<body>
+<div id="app">
+  <header><h1>KOLORIX</h1><div class="score" id="score"></div><button class="menuBtn" id="menuOpen" title="Menu">☰</button></header>
+  <div class="ad" id="adTop"><!-- Emplacement AdSense bannière haute --> Publicité</div>
+
+  <div class="zone cpu">
+    <div class="label" id="cpuLabel">Ordinateur</div>
+    <div class="hand cpu" id="cpuHand"></div>
+  </div>
+
+  <div class="mid">
+    <div id="pile" title="Piocher"><div class="card back"><span>K</span></div></div>
+    <div style="position:relative"><div id="top"></div><div id="colorDot"></div></div>
+  </div>
+
+  <div id="msg"></div>
+  <button class="btn" id="passBtn">Passer mon tour</button>
+  <div class="zone">
+    <div class="label">Votre main</div>
+    <div class="hand mine" id="myHand"></div>
+  </div>
+
+  <div class="ad" id="adBottom"><!-- Emplacement AdSense bannière basse --> Publicité</div>
+  <footer>Jeu original Kolorix · <a href="privacy.html">Confidentialité</a></footer>
+</div>
+
+<!-- Choix de couleur (jokers) -->
+<div class="modal" id="colorModal"><div class="box">
+  <h2>Choisissez une couleur</h2>
+  <div class="cols">
+    <button style="background:var(--coral)" data-c="coral"></button>
+    <button style="background:var(--indigo)" data-c="indigo"></button>
+    <button style="background:var(--emerald)" data-c="emerald"></button>
+    <button style="background:var(--amber)" data-c="amber"></button>
+  </div>
+</div></div>
+
+<!-- Fin de partie -->
+<div class="modal" id="endModal"><div class="box">
+  <h2 id="endTitle"></h2>
+  <p id="endText"></p>
+  <div class="ad" id="adEnd" style="margin:10px 0;min-height:100px"><!-- Emplacement AdSense entre deux parties --> Publicité</div>
+  <button class="btn" id="replay">Rejouer</button>
+</div></div>
+
+<!-- Menu principal -->
+<div class="modal" id="menu" style="display:flex"><div class="box">
+  <h2>KOLORIX</h2>
+  <button class="btn full" id="btnCpu">🤖 Jouer contre l'ordinateur</button>
+  <button class="btn full" id="btnHost">🌍 Créer une partie en ligne</button>
+  <div id="hostBox" style="display:none">
+    <div>Code de la partie</div>
+    <div id="bigCode">…</div>
+    <a class="btn alt full" id="shareWa" target="_blank" rel="noopener">Inviter par WhatsApp</a>
+  </div>
+  <input class="code" id="joinCode" maxlength="5" placeholder="CODE" autocomplete="off">
+  <button class="btn full" id="btnJoin">🔗 Rejoindre avec un code</button>
+  <div id="mstat"></div>
+</div></div>
+
+<script>
+/* ============ Réglages réseau (mode en ligne) ============ */
+const PEER_CFG={config:{iceServers:[
+  {urls:'stun:stun.l.google.com:19302'},
+  {urls:'stun:global.stun.twilio.com:3478'}
+  /* Pour une meilleure fiabilité sur réseaux mobiles, ajoutez un serveur TURN :
+  ,{urls:'turn:VOTRE_SERVEUR:3478',username:'user',credential:'pass'} */
+]}};
+
+/* ============ Jeu ============ */
+const COLORS=['coral','indigo','emerald','amber'];
+const SYM={stop:'⊘',rev:'⇄',p2:'+2',wild:'✦',w4:'+4'};
+let deck,disc,hands,top,cur,turn,drew=false,busy=false,drewC=false,over=false,winner=null,ev=null,uid=0;
+let mode='cpu',role='host',peer=null,conn=null,view=null;
+let wins={p:0,c:0},sess={p:0,c:0};
+try{const s=JSON.parse(localStorage.getItem('kolorix')||'null');if(s)wins=s}catch(e){}
+
+const $=id=>document.getElementById(id);
+const other=w=>w==='p'?'c':'p';
+const label=c=>c.t==='n'?String(c.v):SYM[c.t];
+const nameOf=c=>({coral:'corail',indigo:'indigo',emerald:'émeraude',amber:'ambre'})[c];
+const OPP=()=>mode==='online'?"l'adversaire":"l'ordinateur";
+const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+const sc=()=>mode==='cpu'?wins:sess;
+
+function buildDeck(){
+  const d=[];
+  COLORS.forEach(c=>{
+    d.push({id:++uid,c,t:'n',v:0});
+    for(let k=0;k<2;k++){
+      for(let v=1;v<=9;v++)d.push({id:++uid,c,t:'n',v});
+      ['stop','rev','p2'].forEach(t=>d.push({id:++uid,c,t}));
+    }
+  });
+  for(let k=0;k<4;k++){d.push({id:++uid,c:'wild',t:'wild'});d.push({id:++uid,c:'wild',t:'w4'})}
+  return shuffle(d);
+}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+
+function drawOne(w){
+  if(!deck.length){
+    const keep=disc.pop();deck=shuffle(disc);disc=[keep];
+    if(!deck.length)return null;
+  }
+  const c=deck.pop();hands[w].push(c);return c;
+}
+function drawN(w,n){for(let i=0;i<n;i++)drawOne(w)}
+
+function playable(c){
+  if(c.c==='wild')return true;
+  return c.c===cur||(top.t===c.t&&(c.t!=='n'||top.v===c.v));
+}
+const anyPlayable=h=>h.some(c=>playable(c));
+
+/* Messages (selon le point de vue du joueur) */
+function setEv(k,who,col){ev={k,who,col};say(evText('p'))}
+function evText(v){
+  if(!ev)return '';
+  const me=ev.who===v,O=OPP(),W=me?'Vous':cap(O);
+  switch(ev.k){
+    case 'start':return turn===v?'À vous de jouer !':'Au tour de '+O+'…';
+    case 'num':return me?'Au tour de '+O+'…':'À vous !';
+    case 'skip':return W+' rejoue ! ('+(me?O+' passe':'vous passez')+')';
+    case 'p2':case 'w4':{const n=ev.k==='p2'?2:4;return me?cap(O)+' pioche '+n+' cartes et passe':'Vous piochez '+n+' cartes et passez'}
+    case 'wild':return W+' choisit '+nameOf(ev.col);
+    case 'dp':return me?'Vous piochez et passez':cap(O)+' pioche et passe';
+  }
+  return '';
+}
+function say(t){$('msg').textContent=t}
+
+/* Nouvelle partie (hôte / solo) */
+function newGame(){
+  deck=buildDeck();disc=[];hands={p:[],c:[]};drew=false;drewC=false;busy=false;over=false;winner=null;
+  drawN('p',7);drawN('c',7);
+  let first=null;
+  while(!first){const f=deck.pop();if(f.c==='wild'||f.t!=='n')deck.unshift(f);else first=f}
+  disc.push(first);top=first;cur=first.c;turn='p';
+  $('endModal').style.display='none';
+  setEv('start','p');render();
+}
+
+function cardEl(c){
+  const d=document.createElement('div');
+  d.className='card c-'+c.c;
+  const l=label(c);
+  d.innerHTML='<i class="tl">'+l+'</i><span>'+l+'</span><i class="br">'+l+'</i>';
+  return d;
+}
+
+function render(){
+  const th=$('top');th.innerHTML='';th.appendChild(cardEl(top));
+  $('colorDot').style.background='var(--'+cur+')';
+  const mh=$('myHand');mh.innerHTML='';
+  hands.p.sort((a,b)=>COLORS.indexOf(a.c)-COLORS.indexOf(b.c)||(a.v??20)-(b.v??20));
+  hands.p.forEach((c,i)=>{
+    const e=cardEl(c);
+    const ok=turn==='p'&&!busy&&!over&&playable(c);
+    if(ok)e.classList.add('ok');
+    e.onclick=()=>{if(ok)playCard(i)};
+    mh.appendChild(e);
+  });
+  const ch=$('cpuHand');ch.innerHTML='';
+  hands.c.forEach(()=>{const b=document.createElement('div');b.className='card back';b.innerHTML='<span>K</span>';ch.appendChild(b)});
+  $('cpuLabel').textContent=cap(OPP())+' · '+hands.c.length+' carte'+(hands.c.length>1?'s':'');
+  const dr=(role==='guest'&&mode==='online')?drew:drew;
+  $('passBtn').style.display=(turn==='p'&&dr&&!over)?'block':'none';
+  const s=sc();
+  $('score').textContent='Vous '+s.p+' – '+s.c+(mode==='cpu'?' Ordi':' Adv.');
+  if(mode==='online'&&role==='host')sync();
+}
+
+function isGuest(){return mode==='online'&&role==='guest'}
+
+function playCard(i){
+  const c=hands.p[i];
+  if(isGuest()){
+    if(c.c==='wild')askColor(col=>send({type:'play',id:c.id,col}));
+    else send({type:'play',id:c.id});
+    return;
+  }
+  hands.p.splice(i,1);drew=false;
+  if(c.c==='wild'){
+    busy=true;render();
+    askColor(col=>{busy=false;finish(c,'p',col)});
+  }else finish(c,'p',c.c);
+}
+
+function finish(c,w,col){
+  disc.push(c);top=c;cur=col;
+  const o=other(w);let extra=false;
+  if(c.t==='stop'||c.t==='rev'){extra=true;setEv('skip',w)}
+  else if(c.t==='p2'){drawN(o,2);extra=true;setEv('p2',w)}
+  else if(c.t==='w4'){drawN(o,4);extra=true;setEv('w4',w)}
+  else if(c.t==='wild')setEv('wild',w,col);
+  else setEv('num',w);
+  if(hands[w].length===0){end(w);return}
+  turn=extra?w:o;render();
+  if(mode==='cpu'&&turn==='c')setTimeout(cpuTurn,950);
+}
+
+function askColor(cb){
+  const m=$('colorModal');m.style.display='flex';
+  m.querySelectorAll('button').forEach(b=>b.onclick=()=>{m.style.display='none';cb(b.dataset.c)});
+}
+
+function passTurn(){
+  turn=other(turn);render();
+  if(mode==='cpu'&&turn==='c')setTimeout(cpuTurn,950);
+}
+
+$('pile').onclick=()=>{
+  if(isGuest()){
+    if(!view||!view.myTurn||view.drew||view.over)return;
+    if(anyPlayable(hands.p)){say('Vous avez une carte jouable !');return}
+    send({type:'draw'});return;
+  }
+  if(turn!=='p'||busy||drew||over||!hands)return;
+  if(anyPlayable(hands.p)){say('Vous avez une carte jouable !');return}
+  const c=drawOne('p');drew=true;
+  if(c&&playable(c)){say('Jouez la carte piochée ou passez');render()}
+  else{drew=false;setEv('dp','p');passTurn()}
+};
+$('passBtn').onclick=()=>{
+  if(isGuest()){send({type:'pass'});return}
+  drew=false;setEv('num','p');passTurn();
+};
+
+/* Ordinateur */
+function cpuTurn(){
+  if(mode!=='cpu'||turn!=='c'||over)return;
+  let opts=hands.c.filter(c=>playable(c));
+  if(!opts.length){
+    const c=drawOne('c');
+    if(c&&playable(c))opts=[c];
+    else{setEv('dp','c');turn='p';render();return}
+  }
+  const nonWild=opts.filter(c=>c.c!=='wild');
+  const specials=nonWild.filter(c=>c.t!=='n');
+  const pick=specials.length?specials[0]:(nonWild.length?nonWild[0]:opts[0]);
+  hands.c.splice(hands.c.indexOf(pick),1);
+  let col=pick.c;
+  if(pick.c==='wild'){
+    const cnt={coral:0,indigo:0,emerald:0,amber:0};
+    hands.c.forEach(c=>{if(cnt[c.c]!==undefined)cnt[c.c]++});
+    col=COLORS.slice().sort((a,b)=>cnt[b]-cnt[a])[0];
+  }
+  finish(pick,'c',col);
+}
+
+/* Fin de partie */
+function showEnd(win){
+  $('endTitle').textContent=win?'🎉 Bravo, vous gagnez !':(mode==='online'?'😅 Votre adversaire gagne':"😅 L'ordinateur gagne");
+  const s=sc();
+  $('endText').textContent='Score : Vous '+s.p+' – '+s.c+(mode==='cpu'?' Ordi':' Adv.');
+  $('endModal').style.display='flex';
+}
+function end(w){
+  over=true;winner=w;
+  if(mode==='cpu'){wins[w]++;try{localStorage.setItem('kolorix',JSON.stringify(wins))}catch(e){}}
+  else sess[w]++;
+  render();showEnd(w==='p');
+  // Si AdSense est activé, vous pouvez rafraîchir ici le bloc publicitaire de fin de partie.
+}
+$('replay').onclick=()=>{
+  $('endModal').style.display='none';
+  if(isGuest()){send({type:'replay'});say('En attente de l\'hôte…');return}
+  newGame();
+};
+
+/* ============ Mode en ligne ============ */
+const mstat=t=>{$('mstat').textContent=t||''};
+function send(m){if(conn&&conn.open)try{conn.send(m)}catch(e){}}
+function cleanup(){
+  try{if(conn)conn.close()}catch(e){}
+  try{if(peer)peer.destroy()}catch(e){}
+  conn=null;peer=null;view=null;
+}
+function mkCode(){const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<5;i++)s+=a[Math.floor(Math.random()*a.length)];return s}
+function showMenu(s){
+  cleanup();$('menu').style.display='flex';$('hostBox').style.display='none';mstat(s||'');
+}
+
+function hostOnline(){
+  cleanup();mode='online';role='host';
+  if(typeof Peer==='undefined'){mstat('Mode en ligne indisponible (vérifiez votre connexion).');return}
+  mstat('Création de la partie…');
+  const code=mkCode();
+  peer=new Peer('kolorix-'+code,PEER_CFG);
+  peer.on('open',()=>{
+    $('bigCode').textContent=code;
+    $('hostBox').style.display='block';
+    const url=location.href.split('?')[0].split('#')[0]+'?room='+code;
+    $('shareWa').href='https://wa.me/?text='+encodeURIComponent('Rejoins-moi sur Kolorix ! Code : '+code+'\n'+url);
+    mstat('En attente d\'un adversaire…');
+  });
+  peer.on('connection',c=>{
+    if(conn&&conn.open){c.close();return}
+    conn=c;setupConn();
+  });
+  peer.on('error',e=>{
+    if(e.type==='unavailable-id')hostOnline();
+    else mstat('Erreur réseau ('+e.type+').');
+  });
+}
+
+function joinOnline(code){
+  code=(code||'').trim().toUpperCase();
+  if(code.length<4){mstat('Entrez le code de la partie.');return}
+  cleanup();mode='online';role='guest';
+  if(typeof Peer==='undefined'){mstat('Mode en ligne indisponible (vérifiez votre connexion).');return}
+  mstat('Connexion…');
+  peer=new Peer(undefined,PEER_CFG);
+  peer.on('open',()=>{
+    conn=peer.connect('kolorix-'+code,{reliable:true});
+    setupConn();
+    setTimeout(()=>{if(conn&&!conn.open)mstat('Connexion impossible. Vérifiez le code ou votre réseau.')},15000);
+  });
+  peer.on('error',e=>{
+    mstat(e.type==='peer-unavailable'?'Code introuvable.':'Erreur réseau ('+e.type+').');
+  });
+}
+
+function setupConn(){
+  const onOpen=()=>{
+    $('menu').style.display='none';$('endModal').style.display='none';
+    if(role==='host'){sess={p:0,c:0};newGame()}
+    else{say('Connecté ! En attente du début…');}
+  };
+  if(conn.open)onOpen();else conn.on('open',onOpen);
+  conn.on('data',onData);
+  conn.on('close',()=>{if(mode==='online')showMenu('Votre adversaire s\'est déconnecté.')});
+  conn.on('error',()=>{if(mode==='online')showMenu('Connexion perdue.')});
+}
+
+/* Hôte : sync de l'état vers l'invité */
+function sync(){
+  if(!(mode==='online'&&role==='host'&&conn&&conn.open&&hands))return;
+  send({type:'state',hand:hands.c,oppCount:hands.p.length,top,cur,
+    myTurn:turn==='c'&&!over,drew:drewC,msg:evText('c'),
+    over,winner:winner==='c'?'me':'opp',wins:{me:sess.c,opp:sess.p}});
+}
+
+function onData(m){
+  if(role==='host')onRemote(m);
+  else if(m.type==='state'){view=m;renderGuest()}
+}
+
+/* Hôte : actions de l'invité */
+function onRemote(m){
+  if(m.type==='replay'){newGame();return}
+  if(turn!=='c'||over)return;
+  if(m.type==='play'){
+    const i=hands.c.findIndex(c=>c.id===m.id);if(i<0)return;
+    const c=hands.c[i];if(!playable(c))return;
+    let col=c.c;
+    if(c.c==='wild'){if(!COLORS.includes(m.col))return;col=m.col}
+    hands.c.splice(i,1);drewC=false;finish(c,'c',col);
+  }else if(m.type==='draw'){
+    if(drewC||anyPlayable(hands.c))return;
+    const c=drawOne('c');
+    if(c&&playable(c)){drewC=true;render()}
+    else{setEv('dp','c');turn='p';render()}
+  }else if(m.type==='pass'){
+    if(!drewC)return;
+    drewC=false;setEv('num','c');turn='p';render();
+  }
+}
+
+/* Invité : affichage de l'état reçu */
+function renderGuest(){
+  if(!view)return;
+  top=view.top;cur=view.cur;busy=false;over=view.over;
+  turn=view.myTurn?'p':'c';
+  hands={p:view.hand,c:new Array(view.oppCount).fill(0)};
+  drew=view.drew;
+  sess={p:view.wins.me,c:view.wins.opp};
+  say(view.msg);
+  render();
+  if(view.over)showEnd(view.winner==='me');else $('endModal').style.display='none';
+}
+
+/* ============ Menu ============ */
+$('btnCpu').onclick=()=>{cleanup();mode='cpu';role='host';$('menu').style.display='none';newGame()};
+$('btnHost').onclick=hostOnline;
+$('btnJoin').onclick=()=>joinOnline($('joinCode').value);
+$('menuOpen').onclick=()=>showMenu();
+
+const room=new URLSearchParams(location.search).get('room');
+if(room){$('joinCode').value=room.toUpperCase().slice(0,5);setTimeout(()=>joinOnline(room),400)}
+</script>
+</body>
+</html>
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Politique de confidentialité – Kolorix</title>
+<style>
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:720px;margin:0 auto;padding:20px;line-height:1.6;color:#222}
+h1{font-size:26px}h2{font-size:19px;margin-top:28px}a{color:#4a6cf7}
+</style>
+</head>
+<body>
+<h1>Politique de confidentialité</h1>
+<p><em>Dernière mise à jour : 24 novembre 2026</em></p>
+
+<p>Cette politique explique comment le site et le jeu <strong>Kolorix</strong> (« le Site ») traitent vos informations. En utilisant le Site, vous l'acceptez.</p>
+
+<h2>1. Données que nous collectons</h2>
+<p>Kolorix ne demande ni compte, ni nom, ni adresse e-mail. Nous ne collectons pas directement de données personnelles.</p>
+<p>Votre score contre l'ordinateur est enregistré uniquement dans le stockage local de votre navigateur (localStorage). Il reste sur votre appareil et vous pouvez l'effacer à tout moment en vidant les données du site.</p>
+
+<h2>2. Mode en ligne</h2>
+<p>Le mode en ligne met deux joueurs en relation grâce à un code de partie. La connexion est établie via la technologie WebRTC et le service de mise en relation PeerJS. Techniquement, l'adresse IP de chaque joueur peut être visible par l'autre joueur pendant la connexion, comme pour tout échange en connexion directe. Nous ne conservons ni les parties ni les échanges entre joueurs.</p>
+
+<h2>3. Publicité Google AdSense</h2>
+<p>Le Site affiche des publicités fournies par Google AdSense. Google et ses partenaires peuvent utiliser des cookies ou des identifiants similaires pour diffuser des annonces en fonction de vos visites sur ce Site et sur d'autres sites.</p>
+<ul>
+<li>Vous pouvez gérer ou désactiver les annonces personnalisées sur <a href="https://adssettings.google.com" rel="noopener">adssettings.google.com</a>.</li>
+<li>Pour en savoir plus sur l'usage des données par Google : <a href="https://policies.google.com/technologies/partner-sites" rel="noopener">policies.google.com/technologies/partner-sites</a>.</li>
+<li>Vous pouvez aussi refuser les cookies publicitaires dans les paramètres de votre navigateur.</li>
+</ul>
+
+<h2>4. Cookies</h2>
+<p>Le Site lui-même n'utilise pas de cookies. Les cookies éventuels proviennent de services tiers, principalement Google AdSense.</p>
+
+<h2>5. Enfants</h2>
+<p>Le Site n'est pas destiné à collecter des informations sur des enfants de moins de 13 ans.</p>
+
+<h2>6. Services tiers</h2>
+<p>Le Site charge des scripts externes (Google AdSense, PeerJS). Ces services ont leurs propres politiques de confidentialité.</p>
+
+<h2>7. Modifications</h2>
+<p>Nous pouvons mettre à jour cette politique. La date de dernière mise à jour figure en haut de la page.</p>
+
+<h2>8. Contact</h2>
+<p>Pour toute question : <strong>Mrfeu24@gmail.com</strong></p>
+
+<p><a href="index.html">← Retour au jeu</a></p>
+</body>
+</html>
