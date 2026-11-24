@@ -146,7 +146,7 @@ const PEER_CFG={config:{iceServers:[
 /* ============ Jeu ============ */
 const COLORS=['coral','indigo','emerald','amber'];
 const SYM={stop:'⊘',rev:'⇄',p2:'+2',wild:'✦',w4:'+4'};
-let deck,disc,hands,top,cur,turn,drew=false,busy=false,drewC=false,over=false,winner=null,ev=null,uid=0;
+let deck,disc,hands,tp,cur,turn,drew=false,busy=false,drewC=false,over=false,winner=null,ev=null,uid=0;
 let mode='cpu',role='host',peer=null,conn=null,view=null;
 let wins={p:0,c:0},sess={p:0,c:0};
 try{const s=JSON.parse(localStorage.getItem('kolorix')||'null');if(s)wins=s}catch(e){}
@@ -184,7 +184,7 @@ function drawN(w,n){for(let i=0;i<n;i++)drawOne(w)}
 
 function playable(c){
   if(c.c==='wild')return true;
-  return c.c===cur||(top.t===c.t&&(c.t!=='n'||top.v===c.v));
+  return c.c===cur||(tp.t===c.t&&(c.t!=='n'||tp.v===c.v));
 }
 const anyPlayable=h=>h.some(c=>playable(c));
 
@@ -211,7 +211,7 @@ function newGame(){
   drawN('p',7);drawN('c',7);
   let first=null;
   while(!first){const f=deck.pop();if(f.c==='wild'||f.t!=='n')deck.unshift(f);else first=f}
-  disc.push(first);top=first;cur=first.c;turn='p';
+  disc.push(first);tp=first;cur=first.c;turn='p';
   $('endModal').style.display='none';
   setEv('start','p');render();
 }
@@ -225,7 +225,7 @@ function cardEl(c){
 }
 
 function render(){
-  const th=$('top');th.innerHTML='';th.appendChild(cardEl(top));
+  const th=$('top');th.innerHTML='';th.appendChild(cardEl(tp));
   $('colorDot').style.background='var(--'+cur+')';
   const mh=$('myHand');mh.innerHTML='';
   hands.p.sort((a,b)=>COLORS.indexOf(a.c)-COLORS.indexOf(b.c)||(a.v??20)-(b.v??20));
@@ -263,7 +263,7 @@ function playCard(i){
 }
 
 function finish(c,w,col){
-  disc.push(c);top=c;cur=col;
+  disc.push(c);tp=c;cur=col;
   const o=other(w);let extra=false;
   if(c.t==='stop'||c.t==='rev'){extra=true;setEv('skip',w)}
   else if(c.t==='p2'){drawN(o,2);extra=true;setEv('p2',w)}
@@ -412,7 +412,7 @@ function setupConn(){
 /* Hôte : sync de l'état vers l'invité */
 function sync(){
   if(!(mode==='online'&&role==='host'&&conn&&conn.open&&hands))return;
-  send({type:'state',hand:hands.c,oppCount:hands.p.length,top,cur,
+  send({type:'state',hand:hands.c,oppCount:hands.p.length,top:tp,cur,
     myTurn:turn==='c'&&!over,drew:drewC,msg:evText('c'),
     over,winner:winner==='c'?'me':'opp',wins:{me:sess.c,opp:sess.p}});
 }
@@ -446,7 +446,7 @@ function onRemote(m){
 /* Invité : affichage de l'état reçu */
 function renderGuest(){
   if(!view)return;
-  top=view.top;cur=view.cur;busy=false;over=view.over;
+  tp=view.top;cur=view.cur;busy=false;over=view.over;
   turn=view.myTurn?'p':'c';
   hands={p:view.hand,c:new Array(view.oppCount).fill(0)};
   drew=view.drew;
